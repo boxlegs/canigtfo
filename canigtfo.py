@@ -1,0 +1,64 @@
+import os
+import sys
+import requests
+import markdown
+from bs4 import BeautifulSoup
+from termcolor import colored
+
+ENDPOINT= 'https://gtfobins.github.io/gtfobins/'
+
+def main():
+    
+    files = []
+    
+    if not sys.stdin.isatty():
+        files.extend(sys.stdin.read().splitlines())
+    
+    if len(sys.argv) > 1:
+        files.extend(sys.argv[1:])
+        
+    # Check if directory exists 
+    
+    for file in files:
+        url = f'{ENDPOINT + file.split("/")[-1]}/'
+        req = requests.get(url)
+        if req.status_code == 200:
+            print(f'Found GTFObins entry for {url}')
+    
+            soup = BeautifulSoup(req.text, 'html.parser')
+            
+            
+            # TODO: See if file exists - if so, why not check if vulnerable? Only really works for SUID
+            
+
+            # TODO: Parse and print output from the site    
+            # Print filename with URL embed
+            print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
+            
+            output = []
+            for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
+                if elem.name in ["h2", "h3"]:
+                    output.append(colored(elem.get_text(strip=True), 'light_red', attrs=['bold']))
+
+                elif elem.name == "p":
+                    text_parts = []
+                    for child in elem.children:
+                        if child.name == "code":
+                            text_parts.append(f" {colored(child.get_text(), 'white', attrs=['bold'])} ")
+                        else:
+                            text_parts.append(child.get_text(strip=True))
+                    output.append("".join(text_parts))
+
+                elif elem.name == "pre":
+                    code_elem = elem.find("code")
+                    if code_elem:
+                        code_text = code_elem.get_text()
+                        bolded_block = "\n" + "".join(
+                            [f"{colored(line, 'white', 'on_grey', attrs=['bold'])}\n" for line in code_text.splitlines() if line.strip() != ""]
+                        )
+                        output.append(bolded_block)
+
+            print("\n".join(output))
+
+if __name__ == "__main__":
+    main()
