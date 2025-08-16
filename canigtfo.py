@@ -14,6 +14,10 @@ import time
 
 WRITABLE_ONLY = False
 ENDPOINT= f'https://gtfobins.github.io/gtfobins/'
+DELAY = 3
+
+
+# TODO: Persistent cache
 cache = {}
 
 def main():
@@ -51,9 +55,7 @@ def main():
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         for file in files:
-            executor.submit(check_file, file)
-            time.sleep(3)
-            
+            executor.submit(check_file, file)            
     
 
 def check_file(file):
@@ -68,6 +70,7 @@ def check_file(file):
     else:    
         req = requests.get(url, headers={'Host': 'gtfobins.github.io'})
         if req.status_code != 200:
+            time.sleep(DELAY)
             return
         cache[bin] = req.text
         data = req.text
@@ -111,6 +114,7 @@ def check_file(file):
                 output.append(bolded_block)
 
     print("\n".join(output))
+    
 
 if __name__ == "__main__":
     main()
