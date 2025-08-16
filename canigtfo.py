@@ -3,16 +3,13 @@ import sys
 import requests
 import pwd
 import grp
-import markdown
-import socket
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import time 
 
-WRITABLE_ONLY = False
 ENDPOINT= f'http://gtfobins.github.io/gtfobins/'
 DELAY = 3
 
@@ -21,7 +18,6 @@ DELAY = 3
 cache = {}
 
 def main():
-    
     
     # TODO: Add logs
     
@@ -37,7 +33,7 @@ def main():
         for path in paths.split(os.pathsep):
             if os.path.isdir(path):
                 all_files = []
-                for dirpath, dirnames, filenames in os.walk(path):
+                for dirpath, _, filenames in os.walk(path):
                     for file in filenames:
                         
                         file_path = os.path.join(dirpath, file)
