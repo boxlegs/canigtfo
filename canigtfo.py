@@ -25,24 +25,25 @@ def main():
         files.extend(sys.stdin.read().splitlines())
     
     else:
-        path = os.getenv('PATH', sys.argv[1] if len(sys.argv) > 1 else os.cwd())
-        if os.path.isdir(path):
-            all_files = []
-            for dirpath, dirnames, filenames in os.walk(path):
-                for file in filenames:
+        paths = os.getenv('PATH', sys.argv[1] if len(sys.argv) > 1 else os.cwd())
+        for path in paths.split(os.pathsep):
+            if os.path.isdir(path):
+                all_files = []
+                for dirpath, dirnames, filenames in os.walk(path):
+                    for file in filenames:
+                        
+                        # TODO: Add check for exec perms
+                        file_path = os.path.join(dirpath, file)
+                        try:
+                            st = os.stat(file_path)
+                        except Exception:
+                            continue
+                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                            all_files.append(file_path)
                     
-                    # TODO: Add check for exec perms
-                    file_path = os.path.join(dirpath, file)
-                    try:
-                        st = os.stat(file_path)
-                    except Exception:
-                        continue
-                    if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
-                        all_files.append(file_path)
-                
-            files.extend(all_files)
-        else:
-            files.extend(path)
+                files.extend(all_files)
+            else:
+                files.extend(path)
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         for file in files:
