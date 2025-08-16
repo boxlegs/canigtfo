@@ -4,14 +4,15 @@ import requests
 import pwd
 import grp
 import markdown
+import socket
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
-ENDPOINT= 'https://gtfobins.github.io/gtfobins/'
 WRITABLE_ONLY = False
+ENDPOINT= f'https://{socket.gethostbyname("gtfobins.github.io")}/gtfobins/'
 cache = {}
 
 def main():
@@ -23,7 +24,7 @@ def main():
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     
-
+    
     
     if len(sys.argv) > 1:
     
