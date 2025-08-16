@@ -70,6 +70,10 @@ def check_file(file):
     else:    
         req = requests.get(url, headers={'Host': 'gtfobins.github.io'})
         if req.status_code != 200:
+            if req.status_code == 403:
+                DELAY *= 2
+                logging.error(f"We're getting rate limited. Doubling delay to {DELAY} seconds.")
+                
             time.sleep(DELAY)
             return
         cache[bin] = req.text
