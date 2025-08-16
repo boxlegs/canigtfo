@@ -13,7 +13,7 @@ import logging
 import time 
 
 WRITABLE_ONLY = False
-ENDPOINT= f'https://{socket.gethostbyname('gtfobins.github.io')}/gtfobins/'
+ENDPOINT= f'http://{socket.gethostbyname('gtfobins.github.io')}/gtfobins/'
 DELAY = 3
 
 
@@ -46,7 +46,7 @@ def main():
                             st = os.stat(file_path)
                         except Exception:
                             continue
-                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK) and '.' not in file:
                             all_files.append(file_path)
                     
                 files.extend(all_files)
@@ -70,6 +70,7 @@ def check_file(file):
     else:    
         req = requests.get(url, headers={'Host': 'gtfobins.github.io'}, follow_redirects=True)
         if req.status_code != 200:
+            print(req)
             if req.status_code == 403:
                 DELAY *= 2
                 logging.error(f"We're getting rate limited. Doubling delay to {DELAY} seconds.")
