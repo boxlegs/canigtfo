@@ -8,12 +8,15 @@ import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
 import threading
+import logging
 
 ENDPOINT= 'https://gtfobins.github.io/gtfobins/'
 WRITABLE_ONLY = False
 cache = {}
 
 def main():
+    
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     files = []
     
@@ -36,7 +39,7 @@ def main():
                     except Exception:
                         continue
                     if (not WRITABLE_ONLY and st.st_mode & stat.S_IXUSR or st.st_mode & stat.S_IXGRP or st.st_mode & stat.S_IXOTH) \
-                    or os.access(file_path, os.X_OK):
+                    or (os.access(file_path, os.X_OK) or os.access(file_path, os.W_OK)):
                         all_files.append(file_path)
                 
             files.extend(all_files)
@@ -69,7 +72,7 @@ def check_file(file):
         req = requests.get(url)
         if req.status_code != 200:
             return
-        cache[bin] = req.txt
+        cache[bin] = req.text
         data = req.text
                 
     soup = BeautifulSoup(data, 'html.parser')
