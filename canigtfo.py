@@ -81,23 +81,7 @@ def main():
             executor.submit(check_file, file)            
     
 
-def check_file(file):
-    
-    # Build out URI
-    bin = file.split("/")[-1]
-    url = ENDPOINT + 'gtfobins/' + bin + '/'
-    
-    req = requests.get(url)
-    if req.status_code != 200:
-        if req.status_code == 403:
-            DELAY *= 2
-            logging.error(f"We're getting rate limited. Doubling delay to {DELAY} seconds.")
-            
-        time.sleep(DELAY)
-        return
-                
-    soup = BeautifulSoup(req.text, 'html.parser')
-    
+def build_text(file, soup):
     output = []
     output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
     
@@ -135,6 +119,20 @@ def check_file(file):
                 output.append(bolded_block)
 
     print("\n".join(output))
+
+def check_file(file):
+    
+    # Build out URI
+    bin = file.split("/")[-1]
+    url = ENDPOINT + 'gtfobins/' + bin + '/'
+    
+    req = requests.get(url)
+    if req.status_code != 200:
+        return
+                
+    soup = BeautifulSoup(req.text, 'html.parser')
+    
+    build_text(file, soup)
     
 
 if __name__ == "__main__":
