@@ -18,6 +18,9 @@ cache = {}
 
 def main():
     
+    
+    # TODO: Add logs
+    
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     files = []
@@ -35,6 +38,7 @@ def main():
                         
                         file_path = os.path.join(dirpath, file)
                         try:
+                            # TODO: Filter on Sudo, SUID, etc
                             st = os.stat(file_path)
                         except Exception:
                             continue
