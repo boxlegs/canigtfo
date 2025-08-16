@@ -51,17 +51,6 @@ def main():
         for file in files:
             executor.submit(check_file, file)
             
-            
-    # Check if directory exists 
-    threads = []
-    for file in files:
-        threads.append(threading.Thread(target=check_file, args=(file,)))
-        
-    for t in threads:
-        t.start()
-        
-    for t in threads:
-        t.join()
     
 
 def check_file(file):
