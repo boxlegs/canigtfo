@@ -76,9 +76,10 @@ def check_file(file):
         data = req.text
                 
     soup = BeautifulSoup(data, 'html.parser')
-    print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
     
     output = []
+    output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
+    
     for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
         
         # Parse them headers
