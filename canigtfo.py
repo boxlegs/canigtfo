@@ -68,7 +68,7 @@ def check_file(file):
     if bin in cache.keys():
         data = cache[bin]
     else:    
-        req = requests.get(url, headers={'Host: gtfobins.github.io'}, follow_redirects=True)
+        req = requests.get(url, headers={'Host: gtfobins.github.io'})
         if req.status_code != 200:
             print(req)
             if req.status_code == 403:
