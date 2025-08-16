@@ -43,12 +43,11 @@ def main():
     parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
     parser.add_argument('-t', '--threads', type=int, default=THREADS, help='Number of threads to use for checking binaries.')
     parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/)')
-    parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries', choices=['Shell', 'Command', 'Reverse Shell', 'Non-interactive reverse shell', 'Bind shell', 'Non-interactive bind shell', 'File upload', 'File download', 'File write', 'File read', 'Libary load', 'SUID', 'Sudo', 'Capabilities', 'Limited SUID'])    
+    parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries')    
     parser.add_argument('files', nargs='*', help='Files to check. If not provided, will read from stdin or PATH.')
     
     args = parser.parse_args()
     
-
     ENDPOINT = args.url or ENDPOINT
     THREADS = args.threads or THREADS
     function = args.function or None
@@ -69,18 +68,17 @@ def main():
                         
                         file_path = os.path.join(dirpath, file)
                         try:
-                            # TODO: Filter on Sudo, SUID, etc
                             st = os.stat(file_path)
                         except Exception:
                             continue
                         if os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
-                            if not function or function in gtfobins[file]:            
+                            if not function or any(function.lower() in f.lower() for f in gtfobins[file]):           
                                 all_files.append(file_path)
                     
                 files.extend(all_files)
             elif os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
-                if not function or function in gtfobins[file]:
-                    files.extend(path)
+                if not function or any(function.lower() in f.lower() for f in gtfobins[file]):
+                    files.append(file_path)
     
     with ThreadPoolExecutor(max_workers=THREADS) as executor:
         for file in files:
