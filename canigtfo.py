@@ -14,8 +14,32 @@ ENDPOINT= f'http://gtfobins.github.io/gtfobins/'
 DELAY = 3
 THREADS = 10
 
+def get_gtfobins():
+    """
+    Parses GTFObins website to get the list of binaries.
+    This saves us from having to maintain a local copy of the GTFObins list or DDoSing the site.
+    """
+    
+    req = requests.get(ENDPOINT)
+    
+    soup = BeautifulSoup(req.text, 'html.parser')
+    gftobins = {}
+    
+    for row in soup.find_all("tr"):
+        bin_tag = row.find("a", class_="bin-name")
+        if not bin_tag:
+            continue
+        
+        bin_name = bin_tag.text.strip()
+        
+        # Find function-list under the same row
+        functions = [li.text.strip() for li in row.find_all("li")]
+        
+        gftobins[bin_name] = functions
+
+    return gftobins
+
 # TODO: Persistent cache
-cache = {}
 
 def main():
     
@@ -25,6 +49,10 @@ def main():
     
     files = []
     
+    gtfobins = get_gtfobins()
+
+    print(gtfobins)
+        
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     else:
@@ -42,11 +70,11 @@ def main():
                             st = os.stat(file_path)
                         except Exception:
                             continue
-                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK) and '.' not in file:
+                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
                             all_files.append(file_path)
                     
                 files.extend(all_files)
-            else:
+            elif os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
                 files.extend(path)
     
     with ThreadPoolExecutor(max_workers=THREADS) as executor:
