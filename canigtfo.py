@@ -23,9 +23,9 @@ def main():
     
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
-    
     else:
-        paths = os.getenv('PATH', sys.argv[1] if len(sys.argv) > 1 else os.cwd())
+        paths = sys.argv[1] if len(sys.argv) > 1 else None
+        paths = paths or os.getenv('PATH')
         for path in paths.split(os.pathsep):
             if os.path.isdir(path):
                 all_files = []
