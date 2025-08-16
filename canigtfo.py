@@ -23,23 +23,23 @@ def main():
         url = f'{ENDPOINT + file.split("/")[-1]}/'
         req = requests.get(url)
         if req.status_code == 200:
-            print(f'Found GTFObins entry for {url}')
-    
             soup = BeautifulSoup(req.text, 'html.parser')
-            
-            
-            # TODO: See if file exists - if so, why not check if vulnerable? Only really works for SUID
-            
+                        
+
 
             # TODO: Parse and print output from the site    
-            # Print filename with URL embed
             print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
             
             output = []
             for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
                 if elem.name in ["h2", "h3"]:
-                    output.append(colored(elem.get_text(strip=True), 'light_red', attrs=['bold']))
+                    if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o4000:
+                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'green', attrs=['bold']))
+                    else:
+                        output.append(colored(elem.get_text(strip=True), 'light_red', attrs=['bold']))
+            
 
+                    
                 elif elem.name == "p":
                     text_parts = []
                     for child in elem.children:
