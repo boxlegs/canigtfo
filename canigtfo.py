@@ -31,7 +31,10 @@ def main():
                     
                     # TODO: Add check for exec perms
                     file_path = os.path.join(dirpath, file)
-                    st = os.stat(file_path)
+                    try:
+                        st = os.stat(file_path)
+                    except Exception:
+                        continue
                     if (not WRITABLE_ONLY and st.st_mode & stat.S_IXUSR or st.st_mode & stat.S_IXGRP or st.st_mode & stat.S_IXOTH) \
                     or os.access(file_path, os.X_OK):
                         all_files.append(file_path)
