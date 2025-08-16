@@ -17,8 +17,20 @@ def main():
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     
+    
     if len(sys.argv) > 1:
-        files.extend(sys.argv[1:])
+    
+        if os.path.isdir(sys.argv[1]):
+            all_files = []
+            for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
+                for file in filenames:
+                    all_files.append(os.path.join(dirpath, file))
+            files.extend(all_files)
+            
+            print(all_files)
+        else:
+            files.extend(sys.argv[1:])
+        
         
     # Check if directory exists 
     
@@ -27,14 +39,13 @@ def main():
         req = requests.get(url)
         if req.status_code == 200:
             soup = BeautifulSoup(req.text, 'html.parser')
-                        
-
-
-            # TODO: Parse and print output from the site    
+   
             print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
             
             output = []
             for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
+                
+                # Parse them headers
                 if elem.name in ["h2", "h3"]:
                     
                     # SUID/SGID bit check
@@ -47,7 +58,6 @@ def main():
                     else:
                         output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
 
-                    
                 elif elem.name == "p":
                     text_parts = []
                     for child in elem.children:
