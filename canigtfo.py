@@ -1,6 +1,8 @@
 import os
 import sys
 import requests
+import pwd
+import grp
 import markdown
 from bs4 import BeautifulSoup
 from termcolor import colored
@@ -35,9 +37,9 @@ def main():
                 if elem.name in ["h2", "h3"]:
                     # SUID bit check
                     if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o4000:
-                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'red', attrs=['bold']))
-                    if "SGID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o2000:
-                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'red', attrs=['bold']))
+                        output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", 'red', attrs=['bold']))
+                    elif "SGID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o2000:
+                        output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owners {grp.getgrpid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))
                     else:
                         output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
             
