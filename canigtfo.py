@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 WRITABLE_ONLY = False
-ENDPOINT= f'https://{socket.gethostbyname("gtfobins.github.io")}/gtfobins/'
+ENDPOINT= f'https://gtfobins.github.io/gtfobins/'
 cache = {}
 
 def main():
