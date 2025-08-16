@@ -1,8 +1,8 @@
 import os
 import sys
 import requests
-import pwd
-import grp
+# import pwd
+# import grp
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import time 
 
-ENDPOINT= f'http://gtfobins.github.io/gtfobins/'
+ENDPOINT= f'http://gtfobins.github.io/'
 DELAY = 3
 THREADS = 10
 
@@ -26,6 +26,7 @@ def get_gtfobins():
     gftobins = {}
     
     for row in soup.find_all("tr"):
+        
         bin_tag = row.find("a", class_="bin-name")
         if not bin_tag:
             continue
@@ -50,8 +51,6 @@ def main():
     files = []
     
     gtfobins = get_gtfobins()
-
-    print(gtfobins)
         
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
@@ -86,24 +85,18 @@ def check_file(file):
     
     # Build out URI
     bin = file.split("/")[-1]
-    url = ENDPOINT + bin + '/'
+    url = ENDPOINT + 'gtfobins/' + bin + '/'
     
-    # Check for a cache hit
-    if bin in cache.keys():
-        data = cache[bin]
-    else:    
-        req = requests.get(url)
-        if req.status_code != 200:
-            if req.status_code == 403:
-                DELAY *= 2
-                logging.error(f"We're getting rate limited. Doubling delay to {DELAY} seconds.")
+    req = requests.get(url)
+    if req.status_code != 200:
+        if req.status_code == 403:
+            DELAY *= 2
+            logging.error(f"We're getting rate limited. Doubling delay to {DELAY} seconds.")
+            
+        time.sleep(DELAY)
+        return
                 
-            time.sleep(DELAY)
-            return
-        cache[bin] = req.text
-        data = req.text
-                
-    soup = BeautifulSoup(data, 'html.parser')
+    soup = BeautifulSoup(req.text, 'html.parser')
     
     output = []
     output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
