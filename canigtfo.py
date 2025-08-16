@@ -38,7 +38,7 @@ def main():
                 if elem.name in ["h2", "h3"]:
                     # SUID bit check
                     if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and (os.stat(file).st_mode & (stat.S_ISGID | stat.S_ISUID)):
-                        owner = pwd.getpwuid(os.stat(file).st_uid).pw_name if os.stat(file).st_mode & stat.S_ISUID else grp.getgrgid(os.stat(file).st_gid).pw_name
+                        owner = pwd.getpwuid(os.stat(file).st_uid).pw_name if os.stat(file).st_mode & stat.S_ISUID else grp.getgrgid(os.stat(file).st_gid).gr_name
                         output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {owner}", 'red', attrs=['bold']))
                     else:
                         output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
