@@ -24,13 +24,11 @@ def main():
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     
-    
-    
-    if len(sys.argv) > 1:
-    
-        if os.path.isdir(sys.argv[1]):
+    else:
+        path = os.getenv('PATH', sys.argv[1] if len(sys.argv) > 1 else os.cwd())
+        if os.path.isdir(path):
             all_files = []
-            for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
+            for dirpath, dirnames, filenames in os.walk(path):
                 for file in filenames:
                     
                     # TODO: Add check for exec perms
@@ -39,14 +37,12 @@ def main():
                         st = os.stat(file_path)
                     except Exception:
                         continue
-                    if ((not WRITABLE_ONLY and (st.st_mode & stat.S_IXUSR or st.st_mode & stat.S_IXGRP or st.st_mode & stat.S_IXOTH)) \
-                    or (os.access(file_path, os.X_OK))) and "." not in file:
+                    if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
                         all_files.append(file_path)
                 
             files.extend(all_files)
         else:
-            files.extend(sys.argv[1:])
-        
+            files.extend(path)
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         for file in files:
