@@ -12,7 +12,7 @@ import time
 
 ENDPOINT= f'http://gtfobins.github.io/gtfobins/'
 DELAY = 3
-
+THREADS = 10
 
 # TODO: Persistent cache
 cache = {}
@@ -49,7 +49,7 @@ def main():
             else:
                 files.extend(path)
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=THREADS) as executor:
         for file in files:
             executor.submit(check_file, file)            
     
