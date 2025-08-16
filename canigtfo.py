@@ -33,10 +33,13 @@ def main():
             output = []
             for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
                 if elem.name in ["h2", "h3"]:
+                    # SUID bit check
                     if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o4000:
-                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'green', attrs=['bold']))
+                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'red', attrs=['bold']))
+                    if "SGID" in elem.get_text(strip=True) and os.path.exists(file) and os.stat(file).st_mode & 0o2000:
+                        output.append(colored(elem.get_text(strip=True) + " - ENABLED", 'red', attrs=['bold']))
                     else:
-                        output.append(colored(elem.get_text(strip=True), 'light_red', attrs=['bold']))
+                        output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
             
 
                     
