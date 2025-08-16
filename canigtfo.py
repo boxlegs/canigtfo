@@ -41,7 +41,7 @@ def main():
                         if os.stat(file).st_mode & stat.S_ISUID:
                             output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", 'red', attrs=['bold']))
                         elif os.stat(file).st_mode & stat.S_ISGID:
-                            output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getgrgid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))    
+                            output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {grp.getgrgid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))    
                         
                         
                     else:
