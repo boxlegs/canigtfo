@@ -7,12 +7,7 @@ import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor
-import logging
-import time 
-
-ENDPOINT= f'http://gtfobins.github.io/'
-DELAY = 3
-THREADS = 10
+import argparse
 
 def get_gtfobins():
     """
@@ -31,25 +26,27 @@ def get_gtfobins():
         if not bin_tag:
             continue
         
-        bin_name = bin_tag.text.strip()
-        
-        # Find function-list under the same row
+        bin_name = bin_tag.text.strip()    
         functions = [li.text.strip() for li in row.find_all("li")]
         
         gftobins[bin_name] = functions
 
     return gftobins
 
-# TODO: Persistent cache
-
 def main():
     
-    # TODO: Add logs
+    parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
+    parser.add_argument('-t', '--threads', type=int, default=THREADS, help='Number of threads to use for checking binaries.')
+    parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/)')
+    parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries', choices=['Shell', 'Command', 'Reverse Shell', 'Non-interactive reverse shell', 'Bind shell', 'Non-interactive bind shell', 'File upload', 'File download', 'File write', 'File read', 'Libary load', 'SUID', 'Sudo', 'Capabilities', 'Limited SUID'])    
+    args = parser.parse_args()
     
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    global ENDPOINT, THREADS
+    ENDPOINT = args.url or 'http://gtfobins.github.io/'
+    THREADS = args.threads or 10
+    function = args.function or None
     
-    files = []
-    
+    files = []    
     gtfobins = get_gtfobins()
         
     if not sys.stdin.isatty():
@@ -70,18 +67,31 @@ def main():
                         except Exception:
                             continue
                         if os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
-                            all_files.append(file_path)
+                            if not function or function in gtfobins[file]:            
+                                all_files.append(file_path)
                     
                 files.extend(all_files)
             elif os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
-                files.extend(path)
+                if not function or function in gtfobins[file]:
+                    files.extend(path)
     
     with ThreadPoolExecutor(max_workers=THREADS) as executor:
         for file in files:
             executor.submit(check_file, file)            
-    
 
-def build_text(file, soup):
+
+def check_file(file):
+    
+    # Build out URI
+    bin = file.split("/")[-1]
+    url = ENDPOINT + 'gtfobins/' + bin + '/'
+    
+    req = requests.get(url)
+    if req.status_code != 200:
+        return
+                
+    soup = BeautifulSoup(req.text, 'html.parser')
+    
     output = []
     output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
     
@@ -119,20 +129,6 @@ def build_text(file, soup):
                 output.append(bolded_block)
 
     print("\n".join(output))
-
-def check_file(file):
-    
-    # Build out URI
-    bin = file.split("/")[-1]
-    url = ENDPOINT + 'gtfobins/' + bin + '/'
-    
-    req = requests.get(url)
-    if req.status_code != 200:
-        return
-                
-    soup = BeautifulSoup(req.text, 'html.parser')
-    
-    build_text(file, soup)
     
 
 if __name__ == "__main__":
