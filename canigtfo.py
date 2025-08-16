@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import time 
 
 WRITABLE_ONLY = False
 ENDPOINT= f'https://gtfobins.github.io/gtfobins/'
@@ -32,7 +33,6 @@ def main():
                 for dirpath, dirnames, filenames in os.walk(path):
                     for file in filenames:
                         
-                        # TODO: Add check for exec perms
                         file_path = os.path.join(dirpath, file)
                         try:
                             st = os.stat(file_path)
@@ -48,6 +48,7 @@ def main():
     with ThreadPoolExecutor(max_workers=10) as executor:
         for file in files:
             executor.submit(check_file, file)
+            time.sleep(3)
             
     
 
