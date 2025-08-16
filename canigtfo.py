@@ -36,6 +36,10 @@ def get_gtfobins():
 def main():
     
     global ENDPOINT, THREADS
+    
+    ENDPOINT = 'http://gtfobins.github.io/'
+    THREADS = 10
+    
     parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
     parser.add_argument('-t', '--threads', type=int, default=THREADS, help='Number of threads to use for checking binaries.')
     parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/)')
@@ -43,8 +47,8 @@ def main():
     args = parser.parse_args()
     
 
-    ENDPOINT = args.url or 'http://gtfobins.github.io/'
-    THREADS = args.threads or 10
+    ENDPOINT = args.url or ENDPOINT
+    THREADS = args.threads or THREADS
     function = args.function or None
     
     files = []    
