@@ -26,7 +26,6 @@ def main():
                 for file in filenames:
                     all_files.append(os.path.join(dirpath, file))
             files.extend(all_files)
-            print(all_files)
         else:
             files.extend(sys.argv[1:])
         
