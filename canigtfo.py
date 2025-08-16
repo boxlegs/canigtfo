@@ -7,7 +7,7 @@ import markdown
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
-import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 ENDPOINT= 'https://gtfobins.github.io/gtfobins/'
@@ -47,6 +47,11 @@ def main():
             files.extend(sys.argv[1:])
         
     
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for file in files:
+            executor.submit(check_file, file)
+            
+            
     # Check if directory exists 
     threads = []
     for file in files:
