@@ -1,8 +1,8 @@
 import os
 import sys
 import requests
-# import pwd
-# import grp
+import pwd
+import grp
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
