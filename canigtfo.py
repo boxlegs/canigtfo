@@ -13,7 +13,7 @@ import logging
 import time 
 
 WRITABLE_ONLY = False
-ENDPOINT= f'https://gtfobins.github.io/gtfobins/'
+ENDPOINT= f'https://{socket.gethostbyname('gtfobins.github.io')}/gtfobins/'
 DELAY = 3
 
 
@@ -68,7 +68,7 @@ def check_file(file):
     if bin in cache.keys():
         data = cache[bin]
     else:    
-        req = requests.get(url, headers={'Host': 'gtfobins.github.io'})
+        req = requests.get(url, headers={'Host': 'gtfobins.github.io'}, follow_redirects=True)
         if req.status_code != 200:
             if req.status_code == 403:
                 DELAY *= 2
