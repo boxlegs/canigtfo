@@ -7,6 +7,7 @@ import markdown
 import stat
 from bs4 import BeautifulSoup
 from termcolor import colored
+import threading
 
 ENDPOINT= 'https://gtfobins.github.io/gtfobins/'
 
@@ -29,52 +30,62 @@ def main():
         else:
             files.extend(sys.argv[1:])
         
-        
-    # Check if directory exists 
     
+    # Check if directory exists 
+    threads = []
     for file in files:
-        url = f'{ENDPOINT + file.split("/")[-1]}/'
-        req = requests.get(url)
-        if req.status_code == 200:
-            soup = BeautifulSoup(req.text, 'html.parser')
-   
-            print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
+        threads.append(threading.Thread(target=check_file, args=(file,)))
+        
+    for t in threads:
+        t.start()
+        
+    for t in threads:
+        t.join()
+    
+
+def check_file(file):
+    url = f'{ENDPOINT + file.split("/")[-1]}/'
+    req = requests.get(url)
+    if req.status_code == 200:
+        soup = BeautifulSoup(req.text, 'html.parser')
+
+        print(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
+        
+        output = []
+        for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
             
-            output = []
-            for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
+            # Parse them headers
+            if elem.name in ["h2", "h3"]:
                 
-                # Parse them headers
-                if elem.name in ["h2", "h3"]:
+                # SUID/SGID bit check
+                if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and (os.stat(file).st_mode & (stat.S_ISGID | stat.S_ISUID)):
+                    if os.stat(file).st_mode & stat.S_ISUID:
+                        output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", 'red', attrs=['bold']))
+                    elif os.stat(file).st_mode & stat.S_ISGID:
+                        output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owners {grp.getgrgid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))    
                     
-                    # SUID/SGID bit check
-                    if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and (os.stat(file).st_mode & (stat.S_ISGID | stat.S_ISUID)):
-                        if os.stat(file).st_mode & stat.S_ISUID:
-                            output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", 'red', attrs=['bold']))
-                        elif os.stat(file).st_mode & stat.S_ISGID:
-                            output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owners {grp.getgrgid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))    
-                        
+                else:
+                    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+
+            elif elem.name == "p":
+                text_parts = []
+                for child in elem.children:
+                    if child.name == "code":
+                        text_parts.append(f" {colored(child.get_text(), 'white', attrs=['bold'])} ")
                     else:
-                        output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+                        text_parts.append(child.get_text(strip=True))
+                output.append("".join(text_parts))
 
-                elif elem.name == "p":
-                    text_parts = []
-                    for child in elem.children:
-                        if child.name == "code":
-                            text_parts.append(f" {colored(child.get_text(), 'white', attrs=['bold'])} ")
-                        else:
-                            text_parts.append(child.get_text(strip=True))
-                    output.append("".join(text_parts))
+            elif elem.name == "pre":
+                code_elem = elem.find("code")
+                if code_elem:
+                    code_text = code_elem.get_text()
+                    bolded_block = "\n" + "".join(
+                        [f"{colored(line, 'white', 'on_grey', attrs=['bold'])}\n" for line in code_text.splitlines() if line.strip() != ""]
+                    )
+                    output.append(bolded_block)
 
-                elif elem.name == "pre":
-                    code_elem = elem.find("code")
-                    if code_elem:
-                        code_text = code_elem.get_text()
-                        bolded_block = "\n" + "".join(
-                            [f"{colored(line, 'white', 'on_grey', attrs=['bold'])}\n" for line in code_text.splitlines() if line.strip() != ""]
-                        )
-                        output.append(bolded_block)
-
-            print("\n".join(output))
+        print("\n".join(output))
 
 if __name__ == "__main__":
     main()
