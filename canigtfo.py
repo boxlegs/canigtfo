@@ -13,7 +13,7 @@ import logging
 import time 
 
 WRITABLE_ONLY = False
-ENDPOINT= f'http://{socket.gethostbyname('gtfobins.github.io')}/gtfobins/'
+ENDPOINT= f'http://gtfobins.github.io/gtfobins/'
 DELAY = 3
 
 
