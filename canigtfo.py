@@ -9,6 +9,11 @@ from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor
 import argparse
 
+# TODO: Setup verbose logging
+# TODO: Add caching for duplicate tool hits
+# TODO: Add capability checks using os.xgetattr
+# TODO: modularise checks
+
 def get_gtfobins():
     """
     Parses GTFObins website to get the list of binaries.
@@ -42,10 +47,12 @@ def main():
     
     parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
     parser.add_argument('-t', '--threads', type=int, default=THREADS, help='Number of threads to use for checking binaries.')
-    parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/)')
+    parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/). Useful for proxying.')
     parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries')    
+    parser.add_argument('--offline', action='store_true', help='Run in offline mode - will not return descriptions/examples')
     parser.add_argument('files', nargs='*', help='Files to check. If not provided, will read from stdin or PATH.')
     
+
     args = parser.parse_args()
     
     ENDPOINT = args.url or ENDPOINT
