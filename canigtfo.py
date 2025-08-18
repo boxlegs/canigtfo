@@ -61,7 +61,7 @@ def main():
     
     files = []    
     gtfobins = get_gtfobins()
-        
+    
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     else:
@@ -86,14 +86,71 @@ def main():
             elif os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
                 if not function or any(function.lower() in f.lower() for f in gtfobins[file]):
                     files.append(file_path)
-    
-    with ThreadPoolExecutor(max_workers=THREADS) as executor:
-        for file in files:
-            executor.submit(check_file, file)            
 
+    
+        for file in files:
+            check_file(file)            
+
+def check_suid_enabled(file, elem, output):
+    """
+    Checks if the SUID bit is set on the given filename - if it exists.
+    """
+
+    if os.path.exists(file):
+        if os.stat(file).st_mode & stat.S_ISUID: # If SUID set
+            output.append(colored(elem.get_text(strip=True) + f" - Enabled with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", "red", attrs=['bold']))
+            return
+        elif os.stat(file).st_mode & stat.S_ISGID: # If SGID set
+            output.append(colored(elem.get_text(strip=True) + f" - Enabled with owner group {grp.getgrgid(os.stat(file).st_gid).gr_name}", "red", attrs=['bold']))
+            return        
+    
+    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+
+def check_cap_enabled(file, elem, output):
+    """
+    Checks if the SETUID
+    """
+
+    import struct
+    
+    
+    try:
+        caps_attr = os.getxattr(file, "security.capability") # Throws exception when no caps
+        caps = []
+
+        # Assume capabilities is v2/3
+        magic_etc = struct.unpack_from("I", caps_attr, 0)[0]
+        perm_low, inher_low, perm_high, inher_high = struct.unpack_from("IIII", caps_attr, 4)
+        permitted = (perm_high << 32) | perm_low
+        inheritable = (inher_high << 32) | inher_low
+        setuid_masks = {
+         "CAP_SETUID": 1 << 7,
+         "CAP_SETGID": 1 << 6
+         }
+
+        for capability in setuid_masks.keys():
+            flags = ""
+            if magic_etc & 1: # If caps are enabled, the LSB of the cap header
+                flags += "e"
+            if inheritable & setuid_masks[capability]:
+                flags += "i"
+            if permitted & setuid_masks[capability]:
+                flags += "p"
+            if flags.replace('e', ''):
+                caps.append(f"{capability}+{flags}")
+        
+        if caps:
+            output.append(colored(elem.get_text(strip=True) + f" - Enabled with {', '.join(caps)}", "red", attrs=['bold']))
+        return
+        
+    except OSError:
+        # Log here
+        pass    
+    
+    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
 
 def check_file(file):
-    
+
     # Build out URI
     bin = file.split("/")[-1]
     url = ENDPOINT + 'gtfobins/' + bin + '/'
@@ -101,7 +158,6 @@ def check_file(file):
     req = requests.get(url)
     if req.status_code != 200:
         return
-                
     soup = BeautifulSoup(req.text, 'html.parser')
     
     output = []
@@ -109,18 +165,23 @@ def check_file(file):
     
     for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
         
+        
         # Parse them headers
         if elem.name in ["h2", "h3"]:
-            
-            # SUID/SGID bit check
-            if "SUID" in elem.get_text(strip=True) and os.path.exists(file) and (os.stat(file).st_mode & (stat.S_ISGID | stat.S_ISUID)):
-                if os.stat(file).st_mode & stat.S_ISUID:
-                    output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", 'red', attrs=['bold']))
-                elif os.stat(file).st_mode & stat.S_ISGID:
-                    output.append(colored(elem.get_text(strip=True) + f" - ENABLED with owners {grp.getgrgid(os.stat(file).st_gid).gr_name}", 'red', attrs=['bold']))    
-                
-            else:
-                output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+
+            # Special checks
+            match elem.get_text(strip=True):
+
+                case "SUID" | "Limited SUID":
+                    check_suid_enabled(file, elem, output)
+                case "Capabilities":
+                    check_cap_enabled(file, elem, output)
+              
+              # case "Sudo": <- Not possible! 
+
+                case _:
+                    
+                    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
 
         elif elem.name == "p":
             text_parts = []
