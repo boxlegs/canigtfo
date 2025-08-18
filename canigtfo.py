@@ -8,11 +8,13 @@ from bs4 import BeautifulSoup
 from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor
 import argparse
+import logging
+from colorlog import ColoredFormatter
 
-# TODO: Setup verbose logging
+
+# TODO: Setup verbose/debug logging
 # TODO: Add caching for duplicate tool hits
-# TODO: Add capability checks using os.xgetattr
-# TODO: modularise checks
+# TODO: Reimplement logging
 
 def get_gtfobins():
     """
@@ -38,6 +40,29 @@ def get_gtfobins():
 
     return gftobins
 
+def setup_logger(debug, verbose):
+    """
+    Sets up verbose/debug logging with colour formatting.
+    """
+    
+    formatter = ColoredFormatter(
+    "[%(log_color)s%(levelname)s%(reset)s] %(message)s",
+    log_colors={
+        "DEBUG":    "cyan",
+        "INFO":     "green",
+        "WARNING":  "yellow",
+        "ERROR":    "red",
+        "CRITICAL": "bold_red",
+    })
+    
+    logger = logging.getLogger()
+    
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logger.handlers = []  # Clear existing handlers
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG if debug else (logging.INFO if verbose else logging.WARNING))
+
 def main():
     
     global ENDPOINT, THREADS
@@ -46,6 +71,8 @@ def main():
     THREADS = 10
     
     parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
+    parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable debug logging.')
     parser.add_argument('-t', '--threads', type=int, default=THREADS, help='Number of threads to use for checking binaries.')
     parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/). Useful for proxying.')
     parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries')    
@@ -55,18 +82,19 @@ def main():
 
     args = parser.parse_args()
     
+    setup_logger(args.debug, args.verbose)
+    
     ENDPOINT = args.url or ENDPOINT
     THREADS = args.threads or THREADS
     function = args.function or None
-    
+
     files = []    
     gtfobins = get_gtfobins()
     
     if not sys.stdin.isatty():
         files.extend(sys.stdin.read().splitlines())
     else:
-        paths = sys.argv[1] if len(sys.argv) > 1 else None
-        paths = paths or os.getenv('PATH')
+        paths = ':'.join(args.files) or os.getenv('PATH')
         for path in paths.split(os.pathsep):
             if os.path.isdir(path):
                 all_files = []
@@ -83,13 +111,14 @@ def main():
                                 all_files.append(file_path)
                     
                 files.extend(all_files)
-            elif os.path.isfile(file_path) and os.access(file_path, os.X_OK) and file in gtfobins.keys():
+            elif os.path.isfile(path) and os.access(path, os.X_OK) and file in gtfobins.keys():
                 if not function or any(function.lower() in f.lower() for f in gtfobins[file]):
-                    files.append(file_path)
+                    files.append(path)
 
-    
-        for file in files:
-            check_file(file)            
+    logger = logging.getLogger()
+    logger.debug(f"Collected {len(files)} potential GTFObins. Retrieving details and running checks...")
+    for file in files:
+       check_file(file)            
 
 def check_suid_enabled(file, elem, output):
     """
@@ -108,11 +137,10 @@ def check_suid_enabled(file, elem, output):
 
 def check_cap_enabled(file, elem, output):
     """
-    Checks if the SETUID
+    Checks if the CAP_SETUID and CAP_SETGID capabilities are enabled on the file.
     """
 
     import struct
-    
     
     try:
         caps_attr = os.getxattr(file, "security.capability") # Throws exception when no caps
@@ -165,7 +193,6 @@ def check_file(file):
     
     for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
         
-        
         # Parse them headers
         if elem.name in ["h2", "h3"]:
 
@@ -183,6 +210,7 @@ def check_file(file):
                     
                     output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
 
+        # Parse plaintext
         elif elem.name == "p":
             text_parts = []
             for child in elem.children:
@@ -192,6 +220,7 @@ def check_file(file):
                     text_parts.append(child.get_text(strip=True))
             output.append("".join(text_parts))
 
+        # Parse code
         elif elem.name == "pre":
             code_elem = elem.find("code")
             if code_elem:
