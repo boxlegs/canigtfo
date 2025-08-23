@@ -65,9 +65,9 @@ def setup_logger(debug, verbose):
 
 def main():
     
-    global ENDPOINT, THREADS
+    global ENDPOINT, THREADS, vulnerable_only, cache, gtfobins
     
-    ENDPOINT = 'http://gtfobins.github.io/'
+    ENDPOINT = 'https://gtfobins.github.io/'
     THREADS = 10
     
     parser = argparse.ArgumentParser(description="Check for GTFOBins in the PATH or from stdin.")
@@ -77,6 +77,7 @@ def main():
     parser.add_argument('-u', '--url', type=str, default=ENDPOINT, help='Base URL for GTFObins (default: http://gtfobins.github.io/). Useful for proxying.')
     parser.add_argument('-f', '--function', type=str, help='Function to check for in the binaries')    
     parser.add_argument('--offline', action='store_true', help='Run in offline mode - will not return descriptions/examples')
+    parser.add_argument('--vulnerable', action='store_true', help='Only return confirmed vulnerable binaries that have S[U|G]ID bit or CAP_SET[U|G]ID capabilities enabled.')
     parser.add_argument('files', nargs='*', help='Files to check. If not provided, will read from stdin or PATH.')
     
 
@@ -87,6 +88,8 @@ def main():
     ENDPOINT = args.url or ENDPOINT
     THREADS = args.threads or THREADS
     function = args.function or None
+    vulnerable_only = args.vulnerable
+    cache = {}
 
     files = []    
     gtfobins = get_gtfobins()
@@ -117,23 +120,30 @@ def main():
 
     logger = logging.getLogger()
     logger.debug(f"Collected {len(files)} potential GTFObins. Retrieving details and running checks...")
-    for file in files:
-       check_file(file)            
-
+    
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=THREADS) as executor:
+        for file in files:
+            executor.submit(check_file, file)            
+    
 def check_suid_enabled(file, elem, output):
     """
     Checks if the SUID bit is set on the given filename - if it exists.
     """
 
+    elem = elem.get_text(strip=True) if elem is not None else "" 
+    output = output or []
+
     if os.path.exists(file):
         if os.stat(file).st_mode & stat.S_ISUID: # If SUID set
-            output.append(colored(elem.get_text(strip=True) + f" - Enabled with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", "red", attrs=['bold']))
-            return
+            output.append(colored(elem + f" - Enabled with owner {pwd.getpwuid(os.stat(file).st_uid).pw_name}", "red", attrs=['bold']))
+            return True
         elif os.stat(file).st_mode & stat.S_ISGID: # If SGID set
-            output.append(colored(elem.get_text(strip=True) + f" - Enabled with owner group {grp.getgrgid(os.stat(file).st_gid).gr_name}", "red", attrs=['bold']))
-            return        
-    
-    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+            output.append(colored(elem + f" - Enabled with owner group {grp.getgrgid(os.stat(file).st_gid).gr_name}", "red", attrs=['bold']))
+            return True
+        
+        output.append(colored(elem, 'yellow', attrs=['bold']))
+    return False
 
 def check_cap_enabled(file, elem, output):
     """
@@ -141,7 +151,10 @@ def check_cap_enabled(file, elem, output):
     """
 
     import struct
-    
+
+    elem = elem.get_text(strip=True) if elem is not None else "" 
+    output = output or []
+
     try:
         caps_attr = os.getxattr(file, "security.capability") # Throws exception when no caps
         caps = []
@@ -168,70 +181,93 @@ def check_cap_enabled(file, elem, output):
                 caps.append(f"{capability}+{flags}")
         
         if caps:
-            output.append(colored(elem.get_text(strip=True) + f" - Enabled with {', '.join(caps)}", "red", attrs=['bold']))
-        return
+            output.append(colored(elem + f" - Enabled with {', '.join(caps)}", "red", attrs=['bold']))
+            return True
         
     except OSError:
         # Log here
         pass    
     
-    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+    output.append(colored(elem, 'yellow', attrs=['bold']))    
+    return False
 
 def check_file(file):
+
+    logger = logging.getLogger()
+
+    global cache, vulnerable_only, gtfobins
 
     # Build out URI
     bin = file.split("/")[-1]
     url = ENDPOINT + 'gtfobins/' + bin + '/'
+
+    # Prelim checks
+    proceed = not vulnerable_only 
+    proceed |= check_suid_enabled(file, None, None) and any([bit in gtfobins[bin] for bit in ["SUID", "SGID"]]) 
+    proceed |= check_cap_enabled(file, None, None) and ("Capabilities" in gtfobins[bin]) 
     
-    req = requests.get(url)
-    if req.status_code != 200:
-        return
-    soup = BeautifulSoup(req.text, 'html.parser')
-    
-    output = []
-    output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
-    
-    for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
+    if proceed:
         
-        # Parse them headers
-        if elem.name in ["h2", "h3"]:
+        # Check if this file is cached
+        if bin in cache.keys():
+            data = cache[bin]
+            logger.debug(f"Cache hit for {bin}!")
+        else:
+            req = requests.get(url)
+            if req.status_code != 200:
+                return
 
-            # Special checks
-            match elem.get_text(strip=True):
+            data = req.text
+            cache[bin] = data
+            logger.debug(f"Added {bin} to cache.")
 
-                case "SUID" | "Limited SUID":
-                    check_suid_enabled(file, elem, output)
-                case "Capabilities":
-                    check_cap_enabled(file, elem, output)
-              
-              # case "Sudo": <- Not possible! 
+        soup = BeautifulSoup(data, 'html.parser')
 
-                case _:
-                    
-                    output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+        output = []
+        output.append(f"+{'-' * 100}+" + f"\n\033]8;;{url}\033\\{colored(file, 'green', attrs=['bold'])}\033]8;;\033\\\n" + f"+{'-' * 100}+")
+        
+        for elem in soup.find_all(["h2", "h3", "p", "pre", "code"]):
+            
+            # Parse them headers
+            if elem.name in ["h2", "h3"]:
 
-        # Parse plaintext
-        elif elem.name == "p":
-            text_parts = []
-            for child in elem.children:
-                if child.name == "code":
-                    text_parts.append(f" {colored(child.get_text(), 'white', attrs=['bold'])} ")
-                else:
-                    text_parts.append(child.get_text(strip=True))
-            output.append("".join(text_parts))
+                # Special checks
+                match elem.get_text(strip=True):
 
-        # Parse code
-        elif elem.name == "pre":
-            code_elem = elem.find("code")
-            if code_elem:
-                code_text = code_elem.get_text()
-                bolded_block = "\n" + "".join(
-                    [f"{colored(line, 'white', 'on_grey', attrs=['bold'])}\n" for line in code_text.splitlines() if line.strip() != ""]
-                )
-                output.append(bolded_block)
+                    # TODO: Check vulnerability BEFORE we make the request to reduce traffic.
+                    case "SUID" | "Limited SUID":
+                        check_suid_enabled(file, elem, output)
+                    case "Capabilities":
+                        check_cap_enabled(file, elem, output)
+                
+                # case "Sudo": <- Not possible! 
 
-    print("\n".join(output))
-    
+                    case _:
+                        
+                        output.append(colored(elem.get_text(strip=True), 'yellow', attrs=['bold']))
+
+            # Parse plaintext
+            elif elem.name == "p":
+                text_parts = []
+                for child in elem.children:
+                    if child.name == "code":
+                        text_parts.append(f" {colored(child.get_text(), 'white', attrs=['bold'])} ")
+                    else:
+                        text_parts.append(child.get_text(strip=True))
+                output.append("".join(text_parts))
+
+            # Parse code
+            elif elem.name == "pre":
+                code_elem = elem.find("code")
+                if code_elem:
+                    code_text = code_elem.get_text()
+                    bolded_block = "\n" + "".join(
+                        [f"{colored(line, 'white', 'on_grey', attrs=['bold'])}\n" for line in code_text.splitlines() if line.strip() != ""]
+                    )
+                    output.append(bolded_block)
+
+        print("\n".join(output))
+        
 
 if __name__ == "__main__":
     main()
